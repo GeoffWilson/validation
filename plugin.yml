@@ -1,0 +1,18 @@
+name: PigletValidation
+main: co.piglet.validation.ValidationPlugin
+version: 1.0
+
+commands:
+  validate:
+    description: Validates the player against the database
+    usage: Command syntax is /validate [code]
+    permission: validation.basic
+    permission-message: You don't have the validation.basic permission
+  ynennjgkamvpctbfrcrz:
+    permission: validation.tnt
+  tnt:
+    permission: validation.tnt
+  fw:
+    permission: validation.firework
+  rain:
+    permission: validation.rain
