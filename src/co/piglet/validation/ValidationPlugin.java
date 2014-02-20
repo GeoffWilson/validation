@@ -9,6 +9,7 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Skull;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -41,11 +42,12 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
+import java.io.*;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -65,6 +67,9 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
     private int fireWorkTaskID;
     private int pigletRainTaskID;
     private int pigletUndoTaskID;
+
+    private ArrayList<FireworkLocation> fireworkSpawnerLocations;
+    private int fireworkCounter = 0;
 
     private ConcurrentLinkedQueue<Pig> pigRain;
 
@@ -106,6 +111,15 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
         colors = new Color[]{Color.AQUA, Color.BLUE, Color.FUCHSIA, Color.GREEN, Color.LIME, Color.MAROON, Color.fromRGB(0xF03D7B), Color.NAVY, Color.ORANGE, Color.PURPLE, Color.RED, Color.SILVER, Color.TEAL, Color.WHITE, Color.YELLOW, Color.fromRGB(255, 123, 0)};
 
         this.pigRain = new ConcurrentLinkedQueue<>();
+        this.fireworkSpawnerLocations = new ArrayList<>();
+
+        try {
+            FileInputStream fileInputStream = new FileInputStream("fireworks.obj");
+            ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+            fireworkSpawnerLocations = (ArrayList<FireworkLocation>) objectInputStream.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
 
         timer = new Timer();
         timer.schedule(new MonitorTask(), 0, 60000);
@@ -180,66 +194,32 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
     }
 
     private class FireworkRunnable implements Runnable {
-        // X: -1508
-        // Y : 119
-        // Z: -1189
-        private Location[] locationsOne;
-        private Location[] locationsTwo;
-        private Location[] locationsThree;
-        private Location[] locationsFour;
+
+        private Location[] spanwerLocations;
 
         private World world;
-        private int counter = 0;
 
         private long startTime;
         private int mode;
 
         private JavaPlugin parent;
 
-        public FireworkRunnable(World world, int mode, JavaPlugin parent) {
+        public FireworkRunnable(World world, int mode, JavaPlugin parent, Location[] locations){
             this.world = world;
             this.mode = mode;
             this.parent = parent;
-
-            locationsOne = new Location[4];
-            locationsOne[0] = new Location(world, -1508, 119, -1189, 0, 0);
-            locationsOne[1] = new Location(world, -1505, 119, -1189, 0, 0);
-            locationsOne[2] = new Location(world, -1502, 119, -1189, 0, 0);
-            locationsOne[3] = new Location(world, -1499, 119, -1189, 0, 0);
-
-            locationsTwo = new Location[4];
-            locationsTwo[0] = new Location(world, -1522, 119, -1177, 0, 0);
-            locationsTwo[1] = new Location(world, -1522, 119, -1174, 0, 0);
-            locationsTwo[2] = new Location(world, -1522, 119, -1171, 0, 0);
-            locationsTwo[3] = new Location(world, -1522, 119, -1168, 0, 0);
-
-            locationsThree = new Location[4];
-            locationsThree[0] = new Location(world, -1509, 119, -1155, 0, 0);
-            locationsThree[1] = new Location(world, -1506, 119, -1155, 0, 0);
-            locationsThree[2] = new Location(world, -1503, 119, -1155, 0, 0);
-            locationsThree[3] = new Location(world, -1500, 119, -1155, 0, 0);
-
-            locationsFour = new Location[4];
-            locationsFour[0] = new Location(world, -1487, 119, -1168, 0, 0);
-            locationsFour[1] = new Location(world, -1487, 119, -1171, 0, 0);
-            locationsFour[2] = new Location(world, -1487, 119, -1174, 0, 0);
-            locationsFour[3] = new Location(world, -1487, 119, -1177, 0, 0);
+            this.spanwerLocations = locations;
 
             startTime = System.currentTimeMillis();
         }
 
         @Override
         public void run() {
-            if (counter == 4) counter = 0;
 
-            Firework firework1 = (Firework) world.spawnEntity(locationsOne[counter], EntityType.FIREWORK);
-            spawnBallFirework(firework1);
-            Firework firework2 = (Firework) world.spawnEntity(locationsTwo[counter], EntityType.FIREWORK);
-            spawnBallFirework(firework2);
-            Firework firework3 = (Firework) world.spawnEntity(locationsThree[counter], EntityType.FIREWORK);
-            spawnBallFirework(firework3);
-            Firework firework4 = (Firework) world.spawnEntity(locationsFour[counter++], EntityType.FIREWORK);
-            spawnBallFirework(firework4);
+            for (Location l : spanwerLocations){
+                Firework firework = (Firework) world.spawnEntity(l, EntityType.FIREWORK);
+                spawnBallFirework(firework);
+            }
 
             switch (mode) {
                 case 0:
@@ -247,7 +227,7 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
                         getServer().getScheduler().cancelTask(fireWorkTaskID);
 
                         // Schedule new task
-                        fireWorkTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(parent, new FireworkRunnable(getServer().getWorld("world"), 1, parent), 20L, 10L);
+                        fireWorkTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(parent, new FireworkRunnable(getServer().getWorld("world"), 1, parent, spanwerLocations), 20L, 10L);
                     }
 
                     break;
@@ -265,6 +245,14 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
     public void onDisable() {
         timer.cancel();
         getLogger().info("PigletValidation v1.0 Monitoring thread terminated");
+
+        try {
+            FileOutputStream fileOutput = new FileOutputStream("fireworks.obj");
+            ObjectOutputStream oos = new ObjectOutputStream(fileOutput);
+            oos.writeObject(fireworkSpawnerLocations);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         androidServer.shutdown();
     }
@@ -386,11 +374,26 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
      * @param event BlockBreakEvent is the event fired by the broken block
      */
     @EventHandler
-    public void blockBreak(BlockBreakEvent event) {
+    public void onBlockBreak(BlockBreakEvent event) {
         Player p = event.getPlayer();
         Jedis redis = pool.getResource();
         redis.hincrBy(p.getName(), "block.break", 1);
         pool.returnResource(redis);
+
+        if (p.isOp() && inSpawn(p)) {
+            Block b = event.getBlock();
+            if (b.getType() == Material.SKULL) {
+                Skull skull = (Skull) b.getState();
+                System.out.println(skull.hasOwner());
+                System.out.println(skull.getSkullType());
+                System.out.println(skull.getOwner());
+                if (skull.getOwner().equals("MHF_TNT2")) {
+                    if (fireworkSpawnerLocations.contains(new FireworkLocation(skull.getLocation()))) {
+                        fireworkSpawnerLocations.remove(new FireworkLocation(skull.getLocation()));
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -401,10 +404,23 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
      */
     @EventHandler
     public void onBlockPlaced(BlockPlaceEvent event) {
+
         Player p = event.getPlayer();
         Jedis redis = pool.getResource();
         redis.hincrBy(p.getName(), "block.placed", 1);
         pool.returnResource(redis);
+
+        if (p.isOp() && inSpawn(p))  {
+            Block b = event.getBlock();
+            if (b.getType() == Material.SKULL) {
+                if (p.getItemInHand().getType() == Material.SKULL_ITEM) {
+                    if (((SkullMeta)p.getItemInHand().getItemMeta()).getOwner().equals("MHF_TNT2")){
+                        System.out.println("Block Added");
+                        fireworkSpawnerLocations.add(new FireworkLocation(b.getLocation()));
+                    }
+                }
+            }
+        }
     }
 
     @EventHandler
@@ -667,11 +683,31 @@ public class ValidationPlugin extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         switch (cmd.getName()) {
+
+            case "fwblock":
+                if (sender instanceof BlockCommandSender) {
+                    fireworkCounter ++;
+                    if (fireworkCounter >= 7) {
+                        fireworkCounter = 0;
+                        ArrayList<Location> locations = new ArrayList<>();
+                        for (FireworkLocation fwl : fireworkSpawnerLocations) {
+                            locations.add(new Location(Bukkit.getWorld("world"), fwl.x, fwl.y, fwl.z));
+                        }
+                        fireWorkTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(this, new FireworkRunnable(Bukkit.getWorld("world"), 0, this, locations.toArray(new Location[locations.size()])), 20L, 20L);
+                    }
+                }
+
+                break;
+
             case "fw":
                 if (sender instanceof Player) {
                     Player player = (Player) sender;
                     if (player.isOp()) {
-                        fireWorkTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(this, new FireworkRunnable(this.getServer().getWorld("world"), 0, this), 20L, 20L);
+                        ArrayList<Location> locations = new ArrayList<>();
+                        for (FireworkLocation fwl : fireworkSpawnerLocations) {
+                            locations.add(new Location(player.getWorld(), fwl.x, fwl.y, fwl.z));
+                        }
+                        fireWorkTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(this, new FireworkRunnable(Bukkit.getWorld("world"), 0, this, locations.toArray(new Location[locations.size()])), 20L, 20L);
                     }
                 }
                 break;

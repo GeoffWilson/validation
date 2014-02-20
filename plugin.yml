@@ -14,5 +14,7 @@ commands:
     permission: validation.tnt
   fw:
     permission: validation.firework
+  fwblock:
+    permission: validation.firework
   rain:
     permission: validation.rain
