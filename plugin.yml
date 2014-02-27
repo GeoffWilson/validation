@@ -8,13 +8,3 @@ commands:
     usage: Command syntax is /validate [code]
     permission: validation.basic
     permission-message: You don't have the validation.basic permission
-  ynennjgkamvpctbfrcrz:
-    permission: validation.tnt
-  tnt:
-    permission: validation.tnt
-  fw:
-    permission: validation.firework
-  fwblock:
-    permission: validation.firework
-  rain:
-    permission: validation.rain
